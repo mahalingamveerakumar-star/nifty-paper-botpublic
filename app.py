@@ -127,8 +127,8 @@ with tab_log:
 
     if trades:
         st.dataframe(trades, use_container_width=True)
-        total_risk = sum(t["Risk"] for t in trades)
-        st.metric("Recorded Trade Risk Total", f"₹{total_risk:,.2f}")
+        total_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(t["Risk"] for t in trades)
+        st.metric("Recorded Trade Risk total_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)", f"₹{total_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk = sum(float(t.get("Risk", 0)) for t in trades)_risk:,.2f}")
 
         if st.button("Clear All Paper Trades"):
             st.session_state.paper_trades = []
