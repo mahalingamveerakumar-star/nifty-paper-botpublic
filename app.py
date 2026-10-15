@@ -1,3 +1,4 @@
+
 import streamlit as st
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -8,304 +9,143 @@ st.set_page_config(
     layout="wide"
 )
 
-IST = ZoneInfo("Asia/Kolkata")
 CAPITAL = 30000.0
-RISK_PER_TRADE = 300.0
-
-st.title("📊 NIFTY + SILVERMIC — Manual Paper Trading")
-st.warning(
-    "PAPER MODE ONLY • Dhan API/live data இல்லை • "
-    "எந்த real order-மும் அனுப்பப்படாது."
-)
-st.caption(
-    f"இந்திய நேரம்: "
-    f"{datetime.now(IST).strftime('%d-%m-%Y %I:%M:%S %p')} IST"
-)
-
-a, b, c = st.columns(3)
-a.metric("Paper Capital", f"₹{CAPITAL:,.0f}")
-b.metric("Risk / Trade", f"₹{RISK_PER_TRADE:,.0f}")
-c.metric("Mode", "Manual Paper Only")
+RISK_LIMIT = 300.0
+IST = ZoneInfo("Asia/Kolkata")
 
 if "paper_trades" not in st.session_state:
     st.session_state.paper_trades = []
 
-tabs = st.tabs([
-    "🌅 NIFTY",
-    "🌆 SILVERMIC",
-    "📒 Trade Log",
-    "ℹ️ Rules"
-])
+st.title("📊 NIFTY + SILVERMIC Paper Trading")
+st.warning(
+    "PAPER TRADING ONLY — Live market data இணைக்கப்படவில்லை. "
+    "உண்மையான orders அனுப்பப்படாது."
+)
+
+c1, c2, c3 = st.columns(3)
+c1.metric("Paper Capital", f"₹{CAPITAL:,.0f}")
+c2.metric("Risk Limit / Trade", f"₹{RISK_LIMIT:,.0f}")
+c3.metric("Mode", "Manual Paper Only")
+
+tab_nifty, tab_silver, tab_log, tab_rules = st.tabs(
+    ["📈 NIFTY", "🥈 SILVERMIC", "📒 Trade Log", "📘 Rules"]
+)
 
 
-def add_trade(symbol, entry, sl, target, qty, direction, note):
-    if min(entry, sl, target, qty) <= 0:
-        st.error(
-            "Entry, SL, Target, Quantity அனைத்தும் "
-            "0-ஐ விட அதிகமாக இருக்க வேண்டும்."
-        )
-        return
+def trade_form(symbol, tab):
+    with tab:
+        st.subheader(f"{symbol} — Manual Paper Trade")
 
-    if direction == "BUY" and not (sl < entry < target):
-        st.error("BUY-க்கு SL < Entry < Target இருக்க வேண்டும்.")
-        return
-
-    if direction == "SELL" and not (target < entry < sl):
-        st.error("SELL-க்கு Target < Entry < SL இருக்க வேண்டும்.")
-        return
-
-    risk = abs(entry - sl) * qty
-    reward = abs(target - entry) * qty
-
-    if risk > RISK_PER_TRADE:
-        st.error(
-            f"கணக்கிடப்பட்ட risk ₹{risk:,.2f}; "
-            f"₹{RISK_PER_TRADE:,.0f} வரம்பை மீறுகிறது. "
-            "Quantity குறைக்கவும்."
-        )
-        return
-
-    st.session_state.paper_trades.append({
-        "time": datetime.now(IST).strftime("%d-%m-%Y %H:%M:%S"),
-        "symbol": symbol,
-        "direction": direction,
-        "entry": float(entry),
-        "sl": float(sl),
-        "target": float(target),
-        "qty": int(qty),
-        "risk": float(risk),
-        "reward": float(reward),
-        "status": "OPEN",
-        "exit": None,
-        "pnl": 0.0,
-        "note": note
-    })
-
-    st.success(
-        f"{symbol} paper trade பதிவு செய்யப்பட்டது. "
-        f"Risk ₹{risk:,.2f}; planned reward ₹{reward:,.2f}."
-    )
-
-
-# ---------------- NIFTY TAB ----------------
-
-with tabs[0]:
-    st.header("NIFTY — Morning ORB")
-    st.write("**Opening Range:** 9:15–9:30 AM IST • 5-minute chart")
-
-    st.info(
-        "NIFTY index level அல்லது option premium பயன்படுத்தலாம். "
-        "Entry, SL, Target அனைத்தும் ஒரே instrument/price basis-ல் "
-        "இருக்க வேண்டும்."
-    )
-
-    with st.form("nifty_form"):
-        x, y = st.columns(2)
-
-        with x:
-            direction = st.radio(
-                "Direction",
-                ["BUY", "SELL"],
-                horizontal=True,
-                key="n_dir"
-            )
-            entry = st.number_input(
-                "Entry price",
-                min_value=0.0,
-                value=0.0,
-                step=0.05,
-                key="n_entry"
-            )
-            sl = st.number_input(
-                "Stop Loss",
-                min_value=0.0,
-                value=0.0,
-                step=0.05,
-                key="n_sl"
-            )
-
-        with y:
-            target = st.number_input(
-                "Target (1:2)",
-                min_value=0.0,
-                value=0.0,
-                step=0.05,
-                key="n_target"
-            )
-            qty = st.number_input(
-                "Quantity / units",
-                min_value=1,
-                value=1,
-                step=1,
-                key="n_qty"
-            )
-            note = st.text_input(
-                "Notes",
-                placeholder="ORB close + VWAP + volume manually checked",
-                key="n_note"
-            )
-
-        if st.form_submit_button("Add NIFTY Paper Trade", type="primary"):
-            add_trade(
-                "NIFTY", entry, sl, target, qty, direction, note
-            )
-
-
-# ---------------- SILVERMIC TAB ----------------
-
-with tabs[1]:
-    st.header("SILVERMIC — Evening ORB")
-    st.write("**Opening Range:** 5:00–6:00 PM IST • 5-minute chart")
-
-    st.info(
-        "MCX chart-ல் ORB High/Low மற்றும் breakout candle close-ஐ "
-        "manual-ஆகச் சரிபார்த்து values உள்ளிடவும். "
-        "Contract lot/tick value-ஐ உங்கள் தற்போதைய contract "
-        "specification-ல் உறுதிசெய்யவும்."
-    )
-
-    with st.form("silver_form"):
-        x, y = st.columns(2)
-
-        with x:
-            direction = st.radio(
-                "Direction",
-                ["BUY", "SELL"],
-                horizontal=True,
-                key="s_dir"
-            )
-            entry = st.number_input(
-                "Entry price",
-                min_value=0.0,
-                value=0.0,
-                step=0.05,
-                key="s_entry"
-            )
-            sl = st.number_input(
-                "Stop Loss",
-                min_value=0.0,
-                value=0.0,
-                step=0.05,
-                key="s_sl"
-            )
-
-        with y:
-            target = st.number_input(
-                "Target (1:2)",
-                min_value=0.0,
-                value=0.0,
-                step=0.05,
-                key="s_target"
-            )
-            qty = st.number_input(
-                "Quantity / units",
-                min_value=1,
-                value=1,
-                step=1,
-                key="s_qty"
-            )
-            note = st.text_input(
-                "Notes",
-                placeholder="ORB close + VWAP + volume manually checked",
-                key="s_note"
-            )
-
-        if st.form_submit_button(
-            "Add SILVERMIC Paper Trade",
-            type="primary"
-        ):
-            add_trade(
-                "SILVERMIC", entry, sl, target, qty, direction, note
-            )
-
-
-# ---------------- TRADE LOG TAB ----------------
-
-with tabs[2]:
-    st.header("Trade Log")
-    trades = st.session_state.paper_trades
-
-    if not trades:
-        st.write("இன்னும் paper trades பதிவு செய்யப்படவில்லை.")
-
-    for i, trade in enumerate(trades):
-        title = (
-            f"{i+1}. {trade['symbol']} {trade['direction']} — "
-            f"{trade['status']} — {trade['time']}"
+        side = st.selectbox(
+            "Trade Direction",
+            ["BUY", "SELL"],
+            key=f"{symbol}_side"
         )
 
-        with st.expander(title):
-            x, y, z = st.columns(3)
-            x.metric("Entry", f"{trade['entry']:,.2f}")
-            y.metric("Stop Loss", f"{trade['sl']:,.2f}")
-            z.metric("Target", f"{trade['target']:,.2f}")
+        entry = st.number_input(
+            "Entry Price",
+            min_value=0.0,
+            value=100.0,
+            step=0.05,
+            key=f"{symbol}_entry"
+        )
 
-            st.write(
-                f"Quantity: {trade['qty']} | "
-                f"Planned risk: ₹{trade['risk']:,.2f} | "
-                f"Planned reward: ₹{trade['reward']:,.2f}"
-            )
+        sl = st.number_input(
+            "Stop Loss Price",
+            min_value=0.0,
+            value=98.0 if side == "BUY" else 102.0,
+            step=0.05,
+            key=f"{symbol}_sl"
+        )
 
-            if trade["status"] == "OPEN":
-                with st.form(f"close_{i}"):
-                    exit_price = st.number_input(
-                        "Manual exit price",
-                        min_value=0.0,
-                        value=0.0,
-                        step=0.05,
-                        key=f"exit_{i}"
-                    )
+        qty = st.number_input(
+            "Quantity",
+            min_value=1,
+            value=1,
+            step=1,
+            key=f"{symbol}_qty"
+        )
 
-                    if st.form_submit_button("Close paper trade"):
-                        if exit_price <= 0:
-                            st.error("சரியான exit price உள்ளிடுங்கள்.")
-                        else:
-                            pnl = (
-                                exit_price - trade["entry"]
-                            ) * trade["qty"]
+        valid = (
+            entry > 0
+            and sl > 0
+            and ((side == "BUY" and sl < entry)
+                 or (side == "SELL" and sl > entry))
+        )
 
-                            if trade["direction"] == "SELL":
-                                pnl = -pnl
+        if valid:
+            risk_per_unit = abs(entry - sl)
+            risk_amount = risk_per_unit * qty
 
-                            trade["exit"] = float(exit_price)
-                            trade["pnl"] = float(pnl)
-                            trade["status"] = "CLOSED"
-                            st.rerun()
-
+            if side == "BUY":
+                target = entry + (risk_per_unit * 2)
             else:
-                st.write(
-                    f"Exit: {trade['exit']:,.2f} | "
-                    f"Realized paper P&L: ₹{trade['pnl']:,.2f}"
+                target = entry - (risk_per_unit * 2)
+
+            a, b, c = st.columns(3)
+            a.metric("Risk Amount", f"₹{risk_amount:,.2f}")
+            b.metric("Target (1:2)", f"{target:,.2f}")
+            c.metric("Potential Reward", f"₹{risk_amount * 2:,.2f}")
+
+            if risk_amount > RISK_LIMIT:
+                st.error(
+                    "இந்த trade-ன் கணக்கிடப்பட்ட risk ₹300-ஐ மீறுகிறது. "
+                    "Quantity அல்லது SL distance-ஐ குறைக்கவும்."
                 )
 
-    closed = [t for t in trades if t["status"] == "CLOSED"]
-    total_pnl = sum(t["pnl"] for t in closed)
+            if st.button("Save Paper Trade", key=f"{symbol}_save"):
+                if risk_amount > RISK_LIMIT:
+                    st.error("Risk limit மீறுவதால் trade பதிவு செய்யப்படவில்லை.")
+                else:
+                    st.session_state.paper_trades.append({
+                        "Time": datetime.now(IST).strftime("%d-%m-%Y %H:%M:%S"),
+                        "Symbol": symbol,
+                        "Side": side,
+                        "Entry": entry,
+                        "SL": sl,
+                        "Target": round(target, 2),
+                        "Quantity": qty,
+                        "Risk": round(risk_amount, 2),
+                        "Status": "OPEN"
+                    })
+                    st.success("Paper trade பதிவு செய்யப்பட்டது.")
+                    st.rerun()
+        else:
+            st.error(
+                "BUY-க்கு SL, Entry-ஐ விடக் குறைவாக இருக்க வேண்டும். "
+                "SELL-க்கு SL, Entry-ஐ விட அதிகமாக இருக்க வேண்டும்."
+            )
 
-    x, y, z = st.columns(3)
-    x.metric("Closed trades", len(closed))
-    y.metric(
-        "Open trades",
-        sum(t["status"] == "OPEN" for t in trades)
-    )
-    z.metric("Realized Paper P&L", f"₹{total_pnl:,.2f}")
 
-    if st.button("Clear all paper trades"):
-        st.session_state.paper_trades = []
-        st.rerun()
+trade_form("NIFTY", tab_nifty)
+trade_form("SILVERMIC", tab_silver)
 
+with tab_log:
+    st.subheader("Paper Trade History")
 
-# ---------------- RULES TAB ----------------
+    trades = st.session_state.paper_trades
 
-with tabs[3]:
-    st.header("Rules & Limitations")
+    if trades:
+        st.dataframe(trades, use_container_width=True)
+        total_risk = sum(t["Risk"] for t in trades)
+        st.metric("Recorded Trade Risk Total", f"₹{total_risk:,.2f}")
 
+        if st.button("Clear All Paper Trades"):
+            st.session_state.paper_trades = []
+            st.rerun()
+    else:
+        st.info("இன்னும் paper trades பதிவு செய்யப்படவில்லை.")
+
+with tab_rules:
+    st.subheader("Rules & Limitations")
     st.markdown("""
-- NIFTY ORB: 9:15–9:30 AM IST. SILVERMIC ORB: 5:00–6:00 PM IST.
-- Entry முன் 5-minute candle close, VWAP, volume ஆகியவற்றை chart-ல் manual-ஆகச் சரிபார்க்கவும்.
-- BUY: SL < Entry < Target. SELL: Target < Entry < SL.
-- 1:2 example: Entry 100, SL 98 என்ற BUY trade-க்கு Target 104.
-- App risk = abs(Entry − SL) × quantity எனக் கணக்கிடுகிறது. Futures/options contract multiplier அல்லது lot value வேறுபட்டால் உண்மையான risk வேறாக இருக்கலாம்; சரியான contract specification-ஐ உறுதிசெய்யவும்.
-- Live prices, VWAP, volume, ORB levels fetch ஆகாது; automatic signals/alerts/trailing SL இல்லை.
-- Streamlit session reset/restart ஆனபோது trade log மறையலாம்; இது நிரந்தர journal அல்ல.
-- இது கற்றல்/பயிற்சிக்கான paper simulator மட்டுமே; லாபம் உறுதி இல்லை.
-""")
+    - Paper capital: ₹30,000.
+    - Maximum planned risk per trade: ₹300.
+    - Target calculation: 1:2 risk-reward.
+    - BUY: Stop Loss < Entry < Target.
+    - SELL: Target < Entry < Stop Loss.
+    - இது manual paper simulator மட்டுமே.
+    - Live prices, ORB, VWAP, volume signals இன்னும் இணைக்கப்படவில்லை.
+    - Trade log, Streamlit session reset ஆனபோது மறையலாம்.
+    - Brokerage, slippage, futures lot value ஆகியவை இதில் கணக்கிடப்படவில்லை.
+    """)
